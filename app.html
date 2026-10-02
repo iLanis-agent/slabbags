@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SlabBags - how many bags of concrete?</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#1d1f22; color:#ececec; line-height:1.5; }
+  .wrap { max-width:700px; margin:0 auto; padding:26px 16px 50px; }
+  h1 { font-size:28px; } h1 span { color:#ff9a3c; }
+  .sub { color:#a2a6ad; margin:6px 0 16px; }
+  .card { background:#2a2d31; border-radius:14px; padding:14px; margin-bottom:12px; }
+  .tabs button { background:#3a3e44; color:#ececec; border:0; padding:9px 16px; border-radius:8px; cursor:pointer; font-size:15px; margin-right:6px; }
+  .tabs button.on { background:#ff9a3c; color:#1d1f22; font-weight:700; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-top:12px; }
+  label { font-size:12px; color:#a2a6ad; display:block; margin-bottom:3px; }
+  input,select { width:100%; background:#1d1f22; color:#ececec; border:1px solid #484d55; border-radius:8px; padding:8px; font-size:15px; font-family:inherit; }
+  .big { font-size:54px; font-weight:800; color:#ff9a3c; line-height:1; } .big small { font-size:18px; color:#a2a6ad; font-weight:600; }
+  .stats { display:flex; gap:22px; flex-wrap:wrap; margin-top:12px; } .stats b { display:block; font-size:20px; } .muted { color:#a2a6ad; font-size:13px; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; } td,th { text-align:left; padding:5px 4px; border-bottom:1px solid #3a3e44; } tr.best td { color:#ff9a3c; font-weight:700; }
+  .err { color:#ff9c8a; } .note { font-size:12.5px; color:#80858d; margin-top:6px; }
+  .warn { background:#3b2d1c; border-left:3px solid #ff9a3c; padding:8px 12px; border-radius:6px; font-size:13px; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Slab<span>Bags</span></h1>
+  <div class="sub">Slab or post holes in, bags of premixed concrete out. Rounds up to whole bags and tells you the water.</div>
+  <div class="card">
+    <div class="tabs"><button id="t1" class="on">Slab</button><button id="t2">Post holes</button></div>
+    <div class="grid" id="g1"><div><label>Length (ft)</label><input id="len" value="10" inputmode="decimal"></div><div><label>Width (ft)</label><input id="wid" value="10" inputmode="decimal"></div><div><label>Thickness (in)</label><input id="thk" value="4" inputmode="decimal"></div></div>
+    <div class="grid" id="g2" style="display:none"><div><label>Hole diameter (in)</label><input id="dia" value="10" inputmode="decimal"></div><div><label>Hole depth (in)</label><input id="dep" value="30" inputmode="decimal"></div><div><label>Holes</label><input id="cnt" value="4" inputmode="numeric"></div><div><label>Post side (in, 0 = none)</label><input id="pst" value="3.5" inputmode="decimal"></div></div>
+    <div class="grid"><div><label>Bag size</label><select id="bag"><option value="40">40 lb</option><option value="50">50 lb</option><option value="60">60 lb</option><option value="80" selected>80 lb</option><option value="90">90 lb</option></select></div><div><label>Extra for waste (%)</label><input id="waste" value="10" inputmode="decimal"></div></div>
+  </div>
+  <div class="card"><div id="res"></div></div>
+  <div class="card"><b>Compare bag prices (optional)</b><div class="grid"><div><label>40 lb bag $</label><input id="p40" inputmode="decimal"></div><div><label>60 lb bag $</label><input id="p60" inputmode="decimal"></div><div><label>80 lb bag $</label><input id="p80" inputmode="decimal"></div></div><div id="cmp"></div></div>
+  <div class="warn">Wet concrete is caustic. Wear gloves, eye protection and long sleeves, and rinse skin right away.</div>
+  <div class="note">Yields per bag come from the QUIKRETE Concrete Mix data sheet (40 lb 0.30, 50 lb 0.375, 60 lb 0.45, 80 lb 0.60, 90 lb 0.675 cu ft). Water is 6 to 9 pints per 80 lb bag, scaled by bag weight. Other brands differ, so check your bag. Slab depth under 2 in needs a different mix. Runs in your browser, nothing stored.</div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var S = window.SlabBags, $ = function (i) { return document.getElementById(i); }, mode = 1;
+  function f(x, d) { return (Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).toLocaleString('en-US', { maximumFractionDigits: d }); }
+  function render() {
+    var v = mode === 1 ? S.slab($('len').value, $('wid').value, $('thk').value) : S.postHole($('dia').value, $('dep').value, $('cnt').value, $('pst').value);
+    var p = v === null ? null : S.plan(v, +$('bag').value, $('waste').value);
+    if (!p) { $('res').innerHTML = '<div class="err">Enter positive sizes to get a bag count.</div>'; $('cmp').innerHTML = ''; return; }
+    var note = mode === 1 && +$('thk').value < 2 ? '<div class="warn">Under 2 in thick, standard concrete mix is the wrong product. Use a resurfacer or topping mix.</div>' : '';
+    $('res').innerHTML = '<div class="big">' + p.bags + ' <small>bags of ' + $('bag').value + ' lb</small></div>' +
+      '<div class="stats"><div><span class="muted">Volume</span><b>' + f(p.cuft, 2) + ' cu ft</b><span class="muted">' + f(p.cuyd, 3) + ' cu yd</span></div>' +
+      '<div><span class="muted">With waste</span><b>' + f(p.need, 2) + ' cu ft</b></div>' +
+      '<div><span class="muted">Dry weight</span><b>' + f(p.dryLb, 0) + ' lb</b></div>' +
+      '<div><span class="muted">Water</span><b>' + f(p.waterPtLo, 1) + ' to ' + f(p.waterPtHi, 1) + ' pt</b><span class="muted">' + f(p.waterPtLo / 8, 1) + ' to ' + f(p.waterPtHi / 8, 1) + ' gal</span></div>' +
+      '<div><span class="muted">Leftover</span><b>' + f(p.leftover, 2) + ' cu ft</b></div></div>' + note +
+      '<div class="note">' + f(p.bagsPerYd, 0) + ' bags of this size make one cubic yard.' + (p.cuyd > 1 ? ' Over a yard, price a ready-mix truck too.' : '') + '</div>';
+    var b = S.bestSize({ 40: $('p40').value, 60: $('p60').value, 80: $('p80').value });
+    $('cmp').innerHTML = b.length < 2 ? '' : '<table><tr><th>Bag</th><th>$ per cu ft</th><th>Project cost</th></tr>' + b.map(function (x, i) { var q = S.plan(v, x.lb, $('waste').value); return '<tr' + (i === 0 ? ' class="best"' : '') + '><td>' + x.lb + ' lb' + (i === 0 ? ' (cheapest)' : '') + '</td><td>$' + f(x.perCuft, 2) + '</td><td>$' + f(q.bags * x.perCuft * S.YIELD[x.lb], 2) + ' (' + q.bags + ' bags)</td></tr>'; }).join('') + '</table>';
+  }
+  function tab(m) { mode = m; $('t1').className = m === 1 ? 'on' : ''; $('t2').className = m === 2 ? 'on' : ''; $('g1').style.display = m === 1 ? '' : 'none'; $('g2').style.display = m === 2 ? '' : 'none'; render(); }
+  $('t1').onclick = function () { tab(1); }; $('t2').onclick = function () { tab(2); };
+  document.addEventListener('input', render); document.addEventListener('change', render);
+  render();
+})();
+</script>
+</body>
+</html>
